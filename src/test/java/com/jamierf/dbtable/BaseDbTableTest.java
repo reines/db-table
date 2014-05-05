@@ -38,7 +38,7 @@ public class BaseDbTableTest {
 
     @Before
     public void setUp() {
-        dbi = new DBI(String.format("jdbc:h2:mem:test"));
+        dbi = new DBI("jdbc:h2:mem:test");
 
         table = new BaseDbTable(DATABASE_NAME, dbi);
         System.out.println("Starting, created table: " + table);

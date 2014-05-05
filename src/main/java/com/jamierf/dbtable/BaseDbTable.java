@@ -24,13 +24,11 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     private static final Folder3<ContainerBuilder<Table<byte[], byte[], byte[]>>, Table.Cell<byte[], byte[], byte[]>> TABLE_CELL_FOLDER = StandardFolder.getInstance();
 
     private final String tableName;
-
     private Handle handle;
 
     public BaseDbTable(String tableName, DBI dbi) {
-        this.tableName = tableName;
-
-        handle = dbi.open();
+        this.tableName = Preconditions.checkNotNull(tableName);
+        this.handle = Preconditions.checkNotNull(dbi).open();
 
         createTableIfRequired();
     }
@@ -49,47 +47,47 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     }
 
     private void createTableIfRequired() {
-        checkHandle().execute(String.format("CREATE TABLE IF NOT EXISTS %s (row VARCHAR NOT NULL, column VARCHAR NOT NULL, value BLOB NOT NULL, PRIMARY KEY (row, column))", tableName));
+        checkHandle().execute(String.format("CREATE TABLE IF NOT EXISTS %s (row_field VARCHAR NOT NULL, column_field VARCHAR NOT NULL, value_field BLOB NOT NULL, PRIMARY KEY (row_field, column_field))", tableName));
     }
 
     @Override
     public boolean contains(Object row, Object column) {
-        return checkHandle().createQuery(String.format("SELECT 1 FROM %s WHERE row = :row AND column = :column", tableName))
-                .bind("row", row)
-                .bind("column", column)
+        return checkHandle().createQuery(String.format("SELECT 1 FROM %s WHERE row_field = :row_field AND column_field = :column_field", tableName))
+                .bind("row_field", row)
+                .bind("column_field", column)
                 .map(IntegerMapper.FIRST)
                 .first() != null;
     }
 
     @Override
     public boolean containsRow(Object row) {
-        return checkHandle().createQuery(String.format("SELECT 1 FROM %s WHERE row = :row", tableName))
-                .bind("row", row)
+        return checkHandle().createQuery(String.format("SELECT 1 FROM %s WHERE row_field = :row_field", tableName))
+                .bind("row_field", row)
                 .map(IntegerMapper.FIRST)
                 .first() != null;
     }
 
     @Override
     public boolean containsColumn(Object column) {
-        return checkHandle().createQuery(String.format("SELECT 1 FROM %s WHERE column = :column", tableName))
-                .bind("column", column)
+        return checkHandle().createQuery(String.format("SELECT 1 FROM %s WHERE column_field = :column_field", tableName))
+                .bind("column_field", column)
                 .map(IntegerMapper.FIRST)
                 .first() != null;
     }
 
     @Override
     public boolean containsValue(Object value) {
-        return checkHandle().createQuery(String.format("SELECT 1 FROM %s WHERE value = :value", tableName))
-                .bind("value", value)
+        return checkHandle().createQuery(String.format("SELECT 1 FROM %s WHERE value_field = :value_field", tableName))
+                .bind("value_field", value)
                 .map(IntegerMapper.FIRST)
                 .first() != null;
     }
 
     @Override
     public byte[] get(Object row, Object column) {
-        return checkHandle().createQuery(String.format("SELECT value FROM %s WHERE row = :row AND column = :column", tableName))
-                .bind("row", row)
-                .bind("column", column)
+        return checkHandle().createQuery(String.format("SELECT value_field FROM %s WHERE row_field = :row_field AND column_field = :column_field", tableName))
+                .bind("row_field", row)
+                .bind("column_field", column)
                 .map(ByteArrayMapper.FIRST)
                 .first();
     }
@@ -103,7 +101,7 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
 
     @Override
     public int size() {
-        return checkHandle().createQuery(String.format("SELECT COUNT(value) FROM %s", tableName))
+        return checkHandle().createQuery(String.format("SELECT COUNT(value_field) FROM %s", tableName))
                 .map(IntegerMapper.FIRST)
                 .first();
     }
@@ -116,19 +114,19 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     public byte[] put(@Nullable byte[] row, @Nullable byte[] column, @Nullable byte[] value) {
         final byte[] result = get(row, column);
-        checkHandle().insert(String.format("MERGE INTO %s VALUES (:row, :column, :value)", tableName), row, column, value);
+        checkHandle().insert(String.format("MERGE INTO %s VALUES (:row_field, :column_field, :value_field)", tableName), row, column, value);
         return result;
     }
 
     @Override
     public void putAll(@Nullable Table<? extends byte[], ? extends byte[], ? extends byte[]> table) {
-        final PreparedBatch batch = checkHandle().prepareBatch(String.format("MERGE INTO %s VALUES (:row, :column, :value)", tableName));
+        final PreparedBatch batch = checkHandle().prepareBatch(String.format("MERGE INTO %s VALUES (:row_field, :column_field, :value_field)", tableName));
 
         for (Table.Cell<? extends byte[], ? extends byte[], ? extends byte[]> cell : table.cellSet()) {
             batch.add()
-                    .bind("row", cell.getRowKey())
-                    .bind("column", cell.getColumnKey())
-                    .bind("value", cell.getValue());
+                    .bind("row_field", cell.getRowKey())
+                    .bind("column_field", cell.getColumnKey())
+                    .bind("value_field", cell.getValue());
         }
 
         batch.execute();
@@ -137,16 +135,16 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     public byte[] remove(Object row, Object column) {
         final byte[] result = get(row, column);
-        checkHandle().execute(String.format("DELETE FROM %s WHERE row = :row AND column = :column", tableName), row, column);
+        checkHandle().execute(String.format("DELETE FROM %s WHERE row_field = :row_field AND column_field = :column_field", tableName), row, column);
         return result;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], byte[]> row(@Nullable byte[] row) {
-        return checkHandle().createQuery(String.format("SELECT column, value FROM %s WHERE row = :row", tableName))
-                .bind("row", row)
-                .map(new ByteArrayMapEntryMapper("column", "value"))
+        return checkHandle().createQuery(String.format("SELECT column_field, value_field FROM %s WHERE row_field = :row_field", tableName))
+                .bind("row_field", row)
+                .map(new ByteArrayMapEntryMapper("column_field", "value_field"))
                 .fold(MapContainerBuilder.<byte[], byte[]>getInstance(), MAP_ENTRY_FOLDER)
                 .build();
     }
@@ -154,9 +152,9 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], byte[]> column(@Nullable byte[] column) {
-        return checkHandle().createQuery(String.format("SELECT row, value FROM %s WHERE column = :column", tableName))
-                .bind("column", column)
-                .map(new ByteArrayMapEntryMapper("row", "value"))
+        return checkHandle().createQuery(String.format("SELECT row_field, value_field FROM %s WHERE column_field = :column_field", tableName))
+                .bind("column_field", column)
+                .map(new ByteArrayMapEntryMapper("row_field", "value_field"))
                 .fold(MapContainerBuilder.<byte[], byte[]>getInstance(), MAP_ENTRY_FOLDER)
                 .build();
     }
@@ -164,15 +162,15 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     @SuppressWarnings("unchecked")
     public Set<Cell<byte[], byte[], byte[]>> cellSet() {
-        return checkHandle().createQuery(String.format("SELECT row, column, value FROM %s", tableName))
-                .map(new ByteArrayTableCellMapper("row", "column", "value"))
+        return checkHandle().createQuery(String.format("SELECT row_field, column_field, value_field FROM %s", tableName))
+                .map(new ByteArrayTableCellMapper("row_field", "column_field", "value_field"))
                 .list(Set.class);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Set<byte[]> rowKeySet() {
-        return checkHandle().createQuery(String.format("SELECT row FROM %s", tableName))
+        return checkHandle().createQuery(String.format("SELECT row_field FROM %s", tableName))
                 .map(ByteArrayMapper.FIRST)
                 .list(Set.class);
     }
@@ -180,7 +178,7 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     @SuppressWarnings("unchecked")
     public Set<byte[]> columnKeySet() {
-        return checkHandle().createQuery(String.format("SELECT column FROM %s", tableName))
+        return checkHandle().createQuery(String.format("SELECT column_field FROM %s", tableName))
                 .map(ByteArrayMapper.FIRST)
                 .list(Set.class);
     }
@@ -188,7 +186,7 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     @SuppressWarnings("unchecked")
     public Collection<byte[]> values() {
-        return checkHandle().createQuery(String.format("SELECT value FROM %s", tableName))
+        return checkHandle().createQuery(String.format("SELECT value_field FROM %s", tableName))
                 .map(ByteArrayMapper.FIRST)
                 .list(List.class);
     }
@@ -196,8 +194,8 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], Map<byte[], byte[]>> rowMap() {
-        return checkHandle().createQuery(String.format("SELECT row, column, value FROM %s", tableName))
-                .map(new ByteArrayTableCellMapper("row", "column", "value"))
+        return checkHandle().createQuery(String.format("SELECT row_field, column_field, value_field FROM %s", tableName))
+                .map(new ByteArrayTableCellMapper("row_field", "column_field", "value_field"))
                 .fold(TableContainerBuilder.<byte[], byte[], byte[]>getInstance(), TABLE_CELL_FOLDER)
                 .build().rowMap();
     }
@@ -205,8 +203,8 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], Map<byte[], byte[]>> columnMap() {
-        return checkHandle().createQuery(String.format("SELECT row, column, value FROM %s", tableName))
-                .map(new ByteArrayTableCellMapper("row", "column", "value"))
+        return checkHandle().createQuery(String.format("SELECT row_field, column_field, value_field FROM %s", tableName))
+                .map(new ByteArrayTableCellMapper("row_field", "column_field", "value_field"))
                 .fold(TableContainerBuilder.<byte[], byte[], byte[]>getInstance(), TABLE_CELL_FOLDER)
                 .build().columnMap();
     }
