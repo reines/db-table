@@ -43,7 +43,7 @@ public class DbTable implements Table<byte[], byte[], byte[]> {
     }
 
     private void createTableIfRequired() {
-        handle.execute(String.format("CREATE TABLE IF NOT EXISTS %s (row_field VARBINARY NOT NULL, column_field VARBINARY NOT NULL, value_field BLOB NOT NULL, PRIMARY KEY (row_field, column_field))", tableName));
+        handle.execute(String.format("CREATE TABLE IF NOT EXISTS %s (row_field VARBINARY(255) NOT NULL, column_field VARBINARY(255) NOT NULL, value_field BLOB NOT NULL, PRIMARY KEY HASH (row_field, column_field))", tableName));
     }
 
     @Override
@@ -110,13 +110,13 @@ public class DbTable implements Table<byte[], byte[], byte[]> {
     @Override
     public byte[] put(@Nullable byte[] row, @Nullable byte[] column, @Nullable byte[] value) {
         final byte[] result = get(row, column);
-        handle.insert(String.format("MERGE INTO %s VALUES (:row_field, :column_field, :value_field)", tableName), row, column, value);
+        handle.insert(String.format("REPLACE INTO %s VALUES (:row_field, :column_field, :value_field)", tableName), row, column, value);
         return result;
     }
 
     @Override
     public void putAll(@Nullable Table<? extends byte[], ? extends byte[], ? extends byte[]> table) {
-        final PreparedBatch batch = handle.prepareBatch(String.format("MERGE INTO %s VALUES (:row_field, :column_field, :value_field)", tableName));
+        final PreparedBatch batch = handle.prepareBatch(String.format("REPLACE INTO %s VALUES (:row_field, :column_field, :value_field)", tableName));
 
         for (Table.Cell<? extends byte[], ? extends byte[], ? extends byte[]> cell : table.cellSet()) {
             batch.add()

@@ -84,7 +84,7 @@ class DbMap<K, V> extends AbstractMap<K, V> {
         final V result = get(key);
 
         final SelectionMap valueMap = selectionMapFactory.get(key);
-        handle.createStatement(String.format("MERGE INTO %1$s (row_field, column_field, value_field) VALUES (:row_field, :column_field, :value_field)", tableName))
+        handle.createStatement(String.format("REPLACE INTO %1$s (row_field, column_field, value_field) VALUES (:row_field, :column_field, :value_field)", tableName))
                 .bindFromMap(selectionMap.asMap())
                 .bindFromMap(valueMap.asMap())
                 .bind("value_field", value)
@@ -108,7 +108,7 @@ class DbMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public void putAll(@Nullable Map<? extends K, ? extends V> map) {
-        final PreparedBatch batch = handle.prepareBatch(String.format("MERGE INTO %1$s (row_field, column_field, value_field) VALUES (:row_field, :column_field, :value_field)", tableName));
+        final PreparedBatch batch = handle.prepareBatch(String.format("REPLACE INTO %1$s (row_field, column_field, value_field) VALUES (:row_field, :column_field, :value_field)", tableName));
 
         for (Map.Entry<? extends K, ? extends V> entry : map.entrySet()) {
             final SelectionMap valueMap = selectionMapFactory.get(entry.getKey());

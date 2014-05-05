@@ -14,7 +14,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
@@ -26,7 +25,6 @@ public class DbTableTest {
     private static final String TEST_VALUE = "value";
 
     private static final Random RANDOM = new Random();
-    private static final AtomicInteger COUNTER = new AtomicInteger(0);
 
     private static String randomString(int length) {
         return new BigInteger(length, RANDOM).toString();
@@ -46,12 +44,17 @@ public class DbTableTest {
 
     @Before
     public void setUp() {
-        handle = DBI.open(String.format("jdbc:h2:mem:test-%s", COUNTER.getAndIncrement()));
+        handle = DBI.open("jdbc:h2:mem:test");
         table = createTable(DATABASE_NAME, handle);
+    }
+
+    private void dropTable(String name) {
+        handle.execute(String.format("DROP TABLE %s", name));
     }
 
     @After
     public void tearDown() {
+        dropTable(DATABASE_NAME);
         handle.close();
     }
 
@@ -70,7 +73,7 @@ public class DbTableTest {
     }
 
     @Test
-    public void testEmpty_NotEmptyTableIsntEmpty() {
+    public void testEmpty_NotEmptyTableIsNotEmpty() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
         assertFalse(table.isEmpty());
@@ -133,6 +136,15 @@ public class DbTableTest {
     @Test
     public void testPut_NonExistingValueDoesntOverwrite() {
         assertNull(table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE));
+    }
+
+    @Test
+    public void testPut_PutsExpectedValues() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertEquals(TEST_ROW, Iterables.getOnlyElement(table.rowKeySet()));
+        assertEquals(TEST_COLUMN, Iterables.getOnlyElement(table.columnKeySet()));
+        assertEquals(TEST_VALUE, Iterables.getOnlyElement(table.values()));
     }
 
     @Test
@@ -769,8 +781,13 @@ public class DbTableTest {
     public void testMultipleTables_NoInteraction() {
         final Table<String, String, String> table2 = createTable("test2", handle);
 
-        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        assertFalse(table.isEmpty());
-        assertTrue(table2.isEmpty());
+        try {
+            table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+            assertFalse(table.isEmpty());
+            assertTrue(table2.isEmpty());
+        }
+        finally {
+            dropTable("test2");
+        }
     }
 }
