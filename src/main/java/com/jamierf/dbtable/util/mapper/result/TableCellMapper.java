@@ -1,4 +1,4 @@
-package com.jamierf.dbtable.util.mapper;
+package com.jamierf.dbtable.util.mapper.result;
 
 import com.google.common.collect.Table;
 import com.google.common.collect.Tables;

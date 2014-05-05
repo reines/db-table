@@ -33,7 +33,7 @@ public class DbTableTest {
 
     private static Table<String, String, String> createTable(String name, Handle handle) {
         return TransformingTable.create(
-                DbTable.create(name, handle),
+                new DbTable(name, handle),
                 StringCodec.ENCODER, StringCodec.DECODER,
                 StringCodec.ENCODER, StringCodec.DECODER,
                 StringCodec.ENCODER, StringCodec.DECODER
