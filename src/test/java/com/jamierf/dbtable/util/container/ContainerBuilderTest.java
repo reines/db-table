@@ -12,7 +12,7 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class TestContainerBuilder {
+public class ContainerBuilderTest {
 
     private ContainerBuilder<Map<String, String>> mapContainerBuilder;
     private ContainerBuilder<Table<String, String, String>> tableContainerBuilder;

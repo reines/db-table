@@ -1,12 +1,9 @@
 package com.jamierf.dbtable;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Table;
-import com.jamierf.dbtable.util.container.MapContainerBuilder;
 import com.jamierf.dbtable.util.container.TableContainerBuilder;
 import com.jamierf.dbtable.util.folder.StandardFolder;
-import com.jamierf.dbtable.util.mapper.ByteArrayMapEntryMapper;
 import com.jamierf.dbtable.util.mapper.ByteArrayTableCellMapper;
 import org.skife.jdbi.v2.*;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
@@ -142,21 +139,13 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], byte[]> row(@Nullable byte[] row) {
-        return checkHandle().createQuery(String.format("SELECT column_field, value_field FROM %s WHERE row_field = :row_field", tableName))
-                .bind("row_field", row)
-                .map(new ByteArrayMapEntryMapper("column_field", "value_field"))
-                .fold(MapContainerBuilder.<byte[], byte[]>getInstance(), MAP_ENTRY_FOLDER)
-                .build();
+        return new DbMap(tableName, "row_field", row, "column_field", handle);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], byte[]> column(@Nullable byte[] column) {
-        return checkHandle().createQuery(String.format("SELECT row_field, value_field FROM %s WHERE column_field = :column_field", tableName))
-                .bind("column_field", column)
-                .map(new ByteArrayMapEntryMapper("row_field", "value_field"))
-                .fold(MapContainerBuilder.<byte[], byte[]>getInstance(), MAP_ENTRY_FOLDER)
-                .build();
+        return new DbMap(tableName, "column_field", column, "row_field", handle);
     }
 
     @Override
@@ -164,23 +153,19 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     public Set<Cell<byte[], byte[], byte[]>> cellSet() {
         return checkHandle().createQuery(String.format("SELECT row_field, column_field, value_field FROM %s", tableName))
                 .map(new ByteArrayTableCellMapper("row_field", "column_field", "value_field"))
-                .list(Set.class);
+                .list(Set.class); // TODO: Make this dynamic
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Set<byte[]> rowKeySet() {
-        return checkHandle().createQuery(String.format("SELECT row_field FROM %s", tableName))
-                .map(ByteArrayMapper.FIRST)
-                .list(Set.class);
+        return new DbSet(tableName, "row_field", handle);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Set<byte[]> columnKeySet() {
-        return checkHandle().createQuery(String.format("SELECT column_field FROM %s", tableName))
-                .map(ByteArrayMapper.FIRST)
-                .list(Set.class);
+        return new DbSet(tableName, "column_field", handle);
     }
 
     @Override
@@ -188,7 +173,7 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
     public Collection<byte[]> values() {
         return checkHandle().createQuery(String.format("SELECT value_field FROM %s", tableName))
                 .map(ByteArrayMapper.FIRST)
-                .list(List.class);
+                .list(List.class); // TODO: Make this dynamic
     }
 
     @Override
@@ -197,7 +182,7 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
         return checkHandle().createQuery(String.format("SELECT row_field, column_field, value_field FROM %s", tableName))
                 .map(new ByteArrayTableCellMapper("row_field", "column_field", "value_field"))
                 .fold(TableContainerBuilder.<byte[], byte[], byte[]>getInstance(), TABLE_CELL_FOLDER)
-                .build().rowMap();
+                .build().rowMap(); // TODO: Make this dynamic
     }
 
     @Override
@@ -206,7 +191,7 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
         return checkHandle().createQuery(String.format("SELECT row_field, column_field, value_field FROM %s", tableName))
                 .map(new ByteArrayTableCellMapper("row_field", "column_field", "value_field"))
                 .fold(TableContainerBuilder.<byte[], byte[], byte[]>getInstance(), TABLE_CELL_FOLDER)
-                .build().columnMap();
+                .build().columnMap(); // TODO: Make this dynamic
     }
 
     public synchronized void delete() {
@@ -214,13 +199,5 @@ public class BaseDbTable implements Table<byte[], byte[], byte[]>, AutoCloseable
             handle.execute(String.format("DROP TABLE %s", tableName));
             close();
         }
-    }
-
-    @Override
-    public String toString() {
-        return Objects.toStringHelper(this)
-                .add("tableName", tableName)
-                .add("handle", handle)
-                .toString();
     }
 }
