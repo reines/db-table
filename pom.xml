@@ -2,9 +2,38 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>org.sonatype.oss</groupId>
+        <artifactId>oss-parent</artifactId>
+        <version>7</version>
+    </parent>
+
     <groupId>com.jamierf</groupId>
     <artifactId>db-table</artifactId>
     <version>0.1-SNAPSHOT</version>
+
+    <name>DB Table</name>
+    <description>DB Table is an implementation of the Guava Table interface, backed by JDBI.</description>
+    <url>https://github.com/reines/db-table</url>
+
+    <developers>
+        <developer>
+            <name>Jamie Furness</name>
+            <email>jamie@jamierf.co.uk</email>
+            <timezone>0</timezone>
+        </developer>
+    </developers>
+
+    <issueManagement>
+        <url>https://github.com/reines/db-table/issues</url>
+        <system>GitHub Issues</system>
+    </issueManagement>
+
+    <scm>
+        <url>https://github.com/reines/db-table</url>
+        <connection>scm:git:git://github.com/reines/db-table.git</connection>
+        <developerConnection>scm:git:git@github.com:reines/db-table.git</developerConnection>
+    </scm>
 
     <properties>
         <jdk.version>1.7</jdk.version>
