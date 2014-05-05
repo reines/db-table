@@ -34,4 +34,8 @@ public class InClauseArgumentList<T> {
     public Map<String, T> toMap() {
         return Collections.unmodifiableMap(values);
     }
+
+    public int size() {
+        return values.size();
+    }
 }

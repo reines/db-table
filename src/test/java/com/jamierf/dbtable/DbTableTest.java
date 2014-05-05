@@ -1,49 +1,57 @@
 package com.jamierf.dbtable;
 
 import com.google.common.collect.*;
+import com.jamierf.dbtable.util.codec.StringCodec;
+import com.yammer.collections.transforming.TransformingTable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.skife.jdbi.v2.DBI;
+import org.skife.jdbi.v2.Handle;
 
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
-public class BaseDbTableTest {
+public class DbTableTest {
 
     private static final String DATABASE_NAME = "test";
-    private static final byte[] TEST_ROW = "row".getBytes();
-    private static final byte[] TEST_COLUMN = "column".getBytes();
-    private static final byte[] TEST_VALUE = "value".getBytes();
+    private static final String TEST_ROW = "row";
+    private static final String TEST_COLUMN = "column";
+    private static final String TEST_VALUE = "value";
 
     private static final Random RANDOM = new Random();
+    private static final AtomicInteger COUNTER = new AtomicInteger(0);
 
-    private static byte[] randomBytes(int length) {
-        final byte[] bytes = new byte[length];
-        RANDOM.nextBytes(bytes);
-        return bytes;
+    private static String randomString(int length) {
+        return new BigInteger(length, RANDOM).toString();
     }
 
-    private static byte[] toBytes(Number value) {
-        return new BigInteger(value.toString()).toByteArray();
+    private static Table<String, String, String> createTable(String name, Handle handle) {
+        return TransformingTable.create(
+                DbTable.create(name, handle),
+                StringCodec.ENCODER, StringCodec.DECODER,
+                StringCodec.ENCODER, StringCodec.DECODER,
+                StringCodec.ENCODER, StringCodec.DECODER
+        );
     }
 
-    private DBI dbi;
-    private BaseDbTable table;
+    private Handle handle;
+    private Table<String, String, String> table;
 
     @Before
     public void setUp() {
-        dbi = new DBI("jdbc:h2:mem:test");
-        table = new BaseDbTable(DATABASE_NAME, dbi);
+        handle = DBI.open(String.format("jdbc:h2:mem:test-%s", COUNTER.getAndIncrement()));
+        table = createTable(DATABASE_NAME, handle);
     }
 
     @After
     public void tearDown() {
-        table.delete();
+        handle.close();
     }
 
     // Test constructor
@@ -103,10 +111,10 @@ public class BaseDbTableTest {
         assertTrue(table.containsValue(TEST_VALUE));
 
         // Shouldn't contain other rows
-        assertFalse(table.contains("bla".getBytes(), "bla".getBytes()));
-        assertFalse(table.containsRow("bla".getBytes()));
-        assertFalse(table.containsColumn("bla".getBytes()));
-        assertFalse(table.containsValue("bla".getBytes()));
+        assertFalse(table.contains("bla", "bla"));
+        assertFalse(table.containsRow("bla"));
+        assertFalse(table.containsColumn("bla"));
+        assertFalse(table.containsValue("bla"));
     }
 
     // Test clear
@@ -140,15 +148,15 @@ public class BaseDbTableTest {
 
     @Test
     public void testPutAll_EmptyTableStillEmpty() {
-        table.putAll(ImmutableTable.<byte[], byte[], byte[]>of());
+        table.putAll(ImmutableTable.<String, String, String>of());
         assertTrue(table.isEmpty());
     }
 
     @Test
     public void testPutAll_AllEntriesInserted() {
-        table.putAll(ImmutableTable.<byte[], byte[], byte[]>builder()
+        table.putAll(ImmutableTable.<String, String, String>builder()
                 .put(TEST_ROW, TEST_COLUMN, TEST_VALUE)
-                .put("row1".getBytes(), "column1".getBytes(), "value1".getBytes())
+                .put("row1", "column1", "value1")
                 .build()
         );
 
@@ -157,18 +165,18 @@ public class BaseDbTableTest {
 
     @Test
     public void testPutAll_ExistingValueOverwritten() {
-        table.putAll(ImmutableTable.<byte[], byte[], byte[]>builder()
+        table.putAll(ImmutableTable.<String, String, String>builder()
                         .put(TEST_ROW, TEST_COLUMN, TEST_VALUE)
-                        .put("row1".getBytes(), "column1".getBytes(), "value1".getBytes())
+                        .put("row1", "column1", "value1")
                         .build()
         );
 
         assertEquals(2, table.size());
 
         // Reinsert same rows, they should overwrite existing
-        table.putAll(ImmutableTable.<byte[], byte[], byte[]>builder()
+        table.putAll(ImmutableTable.<String, String, String>builder()
                         .put(TEST_ROW, TEST_COLUMN, TEST_VALUE)
-                        .put("row1".getBytes(), "column1".getBytes(), "value1".getBytes())
+                        .put("row1", "column1", "value1")
                         .build()
         );
 
@@ -186,7 +194,7 @@ public class BaseDbTableTest {
     public void testGet_ExistingRowReturnsValue() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
-        assertArrayEquals(TEST_VALUE, table.get(TEST_ROW, TEST_COLUMN));
+        assertEquals(TEST_VALUE, table.get(TEST_ROW, TEST_COLUMN));
     }
 
     // Test rowKeySet
@@ -201,7 +209,7 @@ public class BaseDbTableTest {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
         assertEquals(1, table.rowKeySet().size());
-        assertArrayEquals(TEST_ROW, Iterables.getOnlyElement(table.rowKeySet()));
+        assertEquals(TEST_ROW, Iterables.getOnlyElement(table.rowKeySet()));
     }
 
     @Test
@@ -233,7 +241,7 @@ public class BaseDbTableTest {
     @Test
     public void testRowKeySet_DuplicateRowKeysIgnored() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
 
         assertEquals(1, table.rowKeySet().size());
     }
@@ -244,16 +252,16 @@ public class BaseDbTableTest {
 
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
         assertTrue(table.rowKeySet().contains(TEST_ROW));
-        assertFalse(table.rowKeySet().contains("row1".getBytes()));
+        assertFalse(table.rowKeySet().contains("row1"));
     }
 
     @Test
     public void testRowKeySet_RemoveAllRemovesExpected() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put("row2".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put("row3".getBytes(), TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put("row2", TEST_COLUMN, TEST_VALUE);
+        table.put("row3", TEST_COLUMN, TEST_VALUE);
 
         table.rowKeySet().removeAll(ImmutableSet.of(TEST_ROW));
         assertEquals(3, table.size());
@@ -262,10 +270,10 @@ public class BaseDbTableTest {
     @Test
     public void testRowKeySet_RetainAllRemovesExpected() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put("row2".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put("row3".getBytes(), TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put("row2", TEST_COLUMN, TEST_VALUE);
+        table.put("row3", TEST_COLUMN, TEST_VALUE);
 
         table.rowKeySet().retainAll(ImmutableSet.of(TEST_ROW));
         assertEquals(2, table.size());
@@ -274,16 +282,16 @@ public class BaseDbTableTest {
     @Test
     public void testRowKeySet_ContainsAllExpected() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put("row2".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put("row3".getBytes(), TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put("row2", TEST_COLUMN, TEST_VALUE);
+        table.put("row3", TEST_COLUMN, TEST_VALUE);
 
-        assertTrue(table.rowKeySet().containsAll(ImmutableList.of(TEST_ROW, TEST_ROW, "row1".getBytes())));
-        assertTrue(table.rowKeySet().containsAll(ImmutableList.of(TEST_ROW, "row1".getBytes())));
+        assertTrue(table.rowKeySet().containsAll(ImmutableList.of(TEST_ROW, TEST_ROW, "row1")));
+        assertTrue(table.rowKeySet().containsAll(ImmutableList.of(TEST_ROW, "row1")));
         assertTrue(table.rowKeySet().containsAll(Collections.emptySet()));
-        assertFalse(table.rowKeySet().containsAll(ImmutableList.of("invalid".getBytes())));
-        assertFalse(table.rowKeySet().containsAll(ImmutableList.of(TEST_ROW, "invalid".getBytes())));
+        assertFalse(table.rowKeySet().containsAll(ImmutableList.of("invalid")));
+        assertFalse(table.rowKeySet().containsAll(ImmutableList.of(TEST_ROW, "invalid")));
     }
 
     // Test columnKeySet
@@ -298,7 +306,7 @@ public class BaseDbTableTest {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
         assertEquals(1, table.columnKeySet().size());
-        assertArrayEquals(TEST_COLUMN, Iterables.getOnlyElement(table.columnKeySet()));
+        assertEquals(TEST_COLUMN, Iterables.getOnlyElement(table.columnKeySet()));
     }
 
     @Test
@@ -330,7 +338,7 @@ public class BaseDbTableTest {
     @Test
     public void testColumnKeySet_DuplicateColumnKeysIgnored() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
 
         assertEquals(1, table.columnKeySet().size());
     }
@@ -341,16 +349,16 @@ public class BaseDbTableTest {
 
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
         assertTrue(table.columnKeySet().contains(TEST_COLUMN));
-        assertFalse(table.columnKeySet().contains("column1".getBytes()));
+        assertFalse(table.columnKeySet().contains("column1"));
     }
 
     @Test
     public void testColumnKeySet_RemoveAllRemovesExpected() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
-        table.put(TEST_ROW, "column2".getBytes(), TEST_VALUE);
-        table.put(TEST_ROW, "column3".getBytes(), TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put(TEST_ROW, "column2", TEST_VALUE);
+        table.put(TEST_ROW, "column3", TEST_VALUE);
 
         table.columnKeySet().removeAll(ImmutableSet.of(TEST_COLUMN));
         assertEquals(3, table.size());
@@ -359,10 +367,10 @@ public class BaseDbTableTest {
     @Test
     public void testColumnKeySet_RetainAllRemovesExpected() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
-        table.put(TEST_ROW, "column2".getBytes(), TEST_VALUE);
-        table.put(TEST_ROW, "column3".getBytes(), TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put(TEST_ROW, "column2", TEST_VALUE);
+        table.put(TEST_ROW, "column3", TEST_VALUE);
 
         table.columnKeySet().retainAll(ImmutableSet.of(TEST_COLUMN));
         assertEquals(2, table.size());
@@ -371,16 +379,16 @@ public class BaseDbTableTest {
     @Test
     public void testColumnKeySet_ContainsAllExpected() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
-        table.put(TEST_ROW, "column2".getBytes(), TEST_VALUE);
-        table.put(TEST_ROW, "column3".getBytes(), TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put(TEST_ROW, "column2", TEST_VALUE);
+        table.put(TEST_ROW, "column3", TEST_VALUE);
 
-        assertTrue(table.columnKeySet().containsAll(ImmutableList.of(TEST_COLUMN, TEST_COLUMN, "column1".getBytes())));
-        assertTrue(table.columnKeySet().containsAll(ImmutableList.of(TEST_COLUMN, "column1".getBytes())));
+        assertTrue(table.columnKeySet().containsAll(ImmutableList.of(TEST_COLUMN, TEST_COLUMN, "column1")));
+        assertTrue(table.columnKeySet().containsAll(ImmutableList.of(TEST_COLUMN, "column1")));
         assertTrue(table.columnKeySet().containsAll(Collections.emptySet()));
-        assertFalse(table.columnKeySet().containsAll(ImmutableList.of("invalid".getBytes())));
-        assertFalse(table.columnKeySet().containsAll(ImmutableList.of(TEST_COLUMN, "invalid".getBytes())));
+        assertFalse(table.columnKeySet().containsAll(ImmutableList.of("invalid")));
+        assertFalse(table.columnKeySet().containsAll(ImmutableList.of(TEST_COLUMN, "invalid")));
     }
 
     // Test remove
@@ -402,7 +410,7 @@ public class BaseDbTableTest {
     public void testRemove_RemovedRowIsReturned() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
-        assertArrayEquals(TEST_VALUE, table.remove(TEST_ROW, TEST_COLUMN));
+        assertEquals(TEST_VALUE, table.remove(TEST_ROW, TEST_COLUMN));
     }
 
     // Test row
@@ -417,7 +425,7 @@ public class BaseDbTableTest {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
         assertFalse(table.row(TEST_ROW).isEmpty());
-        assertTrue(table.row("row1".getBytes()).isEmpty());
+        assertTrue(table.row("row1").isEmpty());
     }
 
     @Test
@@ -444,18 +452,18 @@ public class BaseDbTableTest {
     @Test
     public void testRow_NoInteraction() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.row("row1".getBytes()).clear();
+        table.row("row1").clear();
         assertFalse(table.isEmpty());
     }
 
     @Test
     public void testRow_SingleRowReturnsExpected() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
 
-        final Map<byte[], byte[]> row = table.row(TEST_ROW);
-        assertArrayEquals(TEST_COLUMN, Iterables.getOnlyElement(row.keySet()));
-        assertArrayEquals(TEST_VALUE, Iterables.getOnlyElement(row.values()));
+        final Map<String, String> row = table.row(TEST_ROW);
+        assertEquals(TEST_COLUMN, Iterables.getOnlyElement(row.keySet()));
+        assertEquals(TEST_VALUE, Iterables.getOnlyElement(row.values()));
     }
 
     // Test column
@@ -470,7 +478,7 @@ public class BaseDbTableTest {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
         assertFalse(table.column(TEST_COLUMN).isEmpty());
-        assertTrue(table.column("column1".getBytes()).isEmpty());
+        assertTrue(table.column("column1").isEmpty());
     }
 
     @Test
@@ -497,18 +505,18 @@ public class BaseDbTableTest {
     @Test
     public void testColumn_NoInteraction() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.column("column1".getBytes()).clear();
+        table.column("column1").clear();
         assertFalse(table.isEmpty());
     }
 
     @Test
     public void testColumn_SingleColumnReturnsExpected() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column2".getBytes(), TEST_VALUE);
+        table.put(TEST_ROW, "column2", TEST_VALUE);
 
-        final Map<byte[], byte[]> column = table.column(TEST_COLUMN);
-        assertArrayEquals(TEST_ROW, Iterables.getOnlyElement(column.keySet()));
-        assertArrayEquals(TEST_VALUE, Iterables.getOnlyElement(column.values()));
+        final Map<String, String> column = table.column(TEST_COLUMN);
+        assertEquals(TEST_ROW, Iterables.getOnlyElement(column.keySet()));
+        assertEquals(TEST_VALUE, Iterables.getOnlyElement(column.values()));
     }
 
     // Test rowMap
@@ -528,10 +536,9 @@ public class BaseDbTableTest {
     @Test
     public void testRowMap_MapIsGroupedByRow() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
 
-        System.err.println(table.rowMap());
         assertEquals(2, table.rowMap().size());
     }
 
@@ -552,8 +559,8 @@ public class BaseDbTableTest {
     @Test
     public void testColumnMap_MapIsGroupedByColumn() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put("row1".getBytes(), TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
 
         assertEquals(2, table.columnMap().size());
     }
@@ -568,7 +575,7 @@ public class BaseDbTableTest {
     @Test
     public void testValues_ReturnsDuplicateValues() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-        table.put(TEST_ROW, "column1".getBytes(), TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
 
         assertEquals(2, table.values().size());
     }
@@ -586,24 +593,10 @@ public class BaseDbTableTest {
 
         assertFalse(table.cellSet().isEmpty());
 
-        final Table.Cell<byte[], byte[], byte[]> cell = Iterables.getOnlyElement(table.cellSet());
-        assertArrayEquals(TEST_ROW, cell.getRowKey());
-        assertArrayEquals(TEST_COLUMN, cell.getColumnKey());
-        assertArrayEquals(TEST_VALUE, cell.getValue());
-    }
-
-    // Test delete
-
-    @Test
-    public void testDelete_DeleteClosesConnection() {
-        table.delete();
-    }
-
-    @Test(expected = IllegalStateException.class)
-    public void testDelete_UnableToUseAfterDelete() {
-        table.delete();
-
-        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        final Table.Cell<String, String, String> cell = Iterables.getOnlyElement(table.cellSet());
+        assertEquals(TEST_ROW, cell.getRowKey());
+        assertEquals(TEST_COLUMN, cell.getColumnKey());
+        assertEquals(TEST_VALUE, cell.getValue());
     }
 
     // Test load
@@ -611,7 +604,7 @@ public class BaseDbTableTest {
     @Test
     public void testMany_ManyRows() {
         for (int i = 0; i < 1000; i++) {
-            table.put(toBytes(i), TEST_COLUMN, randomBytes(100));
+            table.put(String.valueOf(i), TEST_COLUMN, randomString(100));
         }
 
         assertEquals(1000, table.size());
@@ -622,7 +615,7 @@ public class BaseDbTableTest {
     @Test
     public void testMany_ManyColumns() {
         for (int i = 0; i < 1000; i++) {
-            table.put(TEST_ROW, toBytes(i), randomBytes(100));
+            table.put(TEST_ROW, String.valueOf(i), randomString(100));
         }
 
         assertEquals(1000, table.size());
@@ -634,14 +627,10 @@ public class BaseDbTableTest {
 
     @Test
     public void testMultipleTables_NoInteraction() {
-        final BaseDbTable table2 = new BaseDbTable("test2", dbi);
+        final Table<String, String, String> table2 = createTable("test2", handle);
 
-        try {
-            table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
-            assertTrue(table2.isEmpty());
-        }
-        finally {
-            table2.delete();
-        }
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        assertFalse(table.isEmpty());
+        assertTrue(table2.isEmpty());
     }
 }
