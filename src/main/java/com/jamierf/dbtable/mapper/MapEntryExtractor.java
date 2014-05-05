@@ -1,4 +1,4 @@
-package com.jamierf.dbtable.util.mapper;
+package com.jamierf.dbtable.mapper;
 
 import com.google.common.base.Function;
 

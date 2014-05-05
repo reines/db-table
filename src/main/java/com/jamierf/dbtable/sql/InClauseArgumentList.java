@@ -1,4 +1,4 @@
-package com.jamierf.dbtable.util.sql;
+package com.jamierf.dbtable.sql;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;

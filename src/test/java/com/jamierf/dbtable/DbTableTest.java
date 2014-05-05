@@ -1,7 +1,7 @@
 package com.jamierf.dbtable;
 
 import com.google.common.collect.*;
-import com.jamierf.dbtable.util.codec.StringCodec;
+import com.jamierf.dbtable.codec.StringCodec;
 import com.yammer.collections.transforming.TransformingTable;
 import org.junit.After;
 import org.junit.Before;
@@ -13,6 +13,7 @@ import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -443,6 +444,16 @@ public class DbTableTest {
     }
 
     @Test
+    public void testRow_PutAllUpdatesTable() {
+        table.row(TEST_ROW).putAll(ImmutableMap.of(
+                TEST_COLUMN, TEST_VALUE,
+                "column1", "value1"
+        ));
+
+        assertEquals(2, table.size());
+    }
+
+    @Test
     public void testRow_ClearUpdatesTable() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
         table.row(TEST_ROW).clear();
@@ -464,6 +475,39 @@ public class DbTableTest {
         final Map<String, String> row = table.row(TEST_ROW);
         assertEquals(TEST_COLUMN, Iterables.getOnlyElement(row.keySet()));
         assertEquals(TEST_VALUE, Iterables.getOnlyElement(row.values()));
+    }
+
+    @Test
+    public void testRow_EmptyEntrySetIsEmpty() {
+        assertTrue(table.row(TEST_ROW).entrySet().isEmpty());
+    }
+
+    @Test
+    public void testRow_EntrySetContainsEntries() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        final Map.Entry<String, String> entry = Iterables.getOnlyElement(table.row(TEST_ROW).entrySet());
+        assertEquals(TEST_COLUMN, entry.getKey());
+        assertEquals(TEST_VALUE, entry.getValue());
+
+        assertTrue(table.row(TEST_ROW).entrySet().contains(Maps.immutableEntry(TEST_COLUMN, TEST_VALUE)));
+        assertFalse(table.row(TEST_ROW).entrySet().contains(Maps.immutableEntry(TEST_COLUMN, "invalid")));
+    }
+
+    @Test
+    public void testRow_ContainsExpectedKeys() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertTrue(table.row(TEST_ROW).containsKey(TEST_COLUMN));
+        assertFalse(table.row(TEST_ROW).containsKey("invalid"));
+    }
+
+    @Test
+    public void testRow_ContainsExpectedValues() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertTrue(table.row(TEST_ROW).containsValue(TEST_VALUE));
+        assertFalse(table.row(TEST_ROW).containsValue("invalid"));
     }
 
     // Test column
@@ -496,6 +540,16 @@ public class DbTableTest {
     }
 
     @Test
+    public void testColumn_PutAllUpdatesTable() {
+        table.column(TEST_COLUMN).putAll(ImmutableMap.of(
+                TEST_ROW, TEST_VALUE,
+                "row1", "value1"
+        ));
+
+        assertEquals(2, table.size());
+    }
+
+    @Test
     public void testColumn_ClearUpdatesTable() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
         table.column(TEST_COLUMN).clear();
@@ -517,6 +571,39 @@ public class DbTableTest {
         final Map<String, String> column = table.column(TEST_COLUMN);
         assertEquals(TEST_ROW, Iterables.getOnlyElement(column.keySet()));
         assertEquals(TEST_VALUE, Iterables.getOnlyElement(column.values()));
+    }
+
+    @Test
+    public void testColumn_EmptyEntrySetIsEmpty() {
+        assertTrue(table.column(TEST_COLUMN).entrySet().isEmpty());
+    }
+
+    @Test
+    public void testColumn_EntrySetContainsEntries() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        final Map.Entry<String, String> entry = Iterables.getOnlyElement(table.column(TEST_COLUMN).entrySet());
+        assertEquals(TEST_ROW, entry.getKey());
+        assertEquals(TEST_VALUE, entry.getValue());
+
+        assertTrue(table.column(TEST_COLUMN).entrySet().contains(Maps.immutableEntry(TEST_ROW, TEST_VALUE)));
+        assertFalse(table.column(TEST_COLUMN).entrySet().contains(Maps.immutableEntry(TEST_ROW, "invalid")));
+    }
+
+    @Test
+    public void testColumn_ContainsExpectedKeys() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertTrue(table.column(TEST_COLUMN).containsKey(TEST_ROW));
+        assertFalse(table.column(TEST_COLUMN).containsKey("invalid"));
+    }
+
+    @Test
+    public void testColumn_ContainsExpectedValues() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertTrue(table.column(TEST_COLUMN).containsValue(TEST_VALUE));
+        assertFalse(table.column(TEST_COLUMN).containsValue("invalid"));
     }
 
     // Test rowMap
@@ -542,6 +629,28 @@ public class DbTableTest {
         assertEquals(2, table.rowMap().size());
     }
 
+    @Test
+    public void testRowMap_GetNotExistingRowIsNull() {
+        assertNull(table.rowMap().get(TEST_ROW));
+    }
+
+    @Test
+    public void testRowMap_GetExistingColumn() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+
+        assertEquals(TEST_VALUE, table.rowMap().get(TEST_ROW).get(TEST_COLUMN));
+    }
+
+    @Test
+    public void testRowMap_ContainsExpectedKeys() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertTrue(table.rowMap().containsKey(TEST_ROW));
+        assertFalse(table.rowMap().containsKey("invalid"));
+    }
+
     // Test columnMap
 
     @Test
@@ -563,6 +672,28 @@ public class DbTableTest {
         table.put(TEST_ROW, "column1", TEST_VALUE);
 
         assertEquals(2, table.columnMap().size());
+    }
+
+    @Test
+    public void testColumnMap_GetNotExistingColumnIsNull() {
+        assertNull(table.columnMap().get(TEST_COLUMN));
+    }
+
+    @Test
+    public void testColumnMap_GetExistingRow() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+
+        assertEquals(TEST_VALUE, table.columnMap().get(TEST_COLUMN).get(TEST_ROW));
+    }
+
+    @Test
+    public void testColumnMap_ContainsExpectedKeys() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertTrue(table.columnMap().containsKey(TEST_COLUMN));
+        assertFalse(table.columnMap().containsKey("invalid"));
     }
 
     // Test values
@@ -591,12 +722,21 @@ public class DbTableTest {
     public void testCellSet_SingleCell() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
-        assertFalse(table.cellSet().isEmpty());
+        final Set<Table.Cell<String, String, String>> cells = table.cellSet();
+        assertFalse(cells.isEmpty());
 
-        final Table.Cell<String, String, String> cell = Iterables.getOnlyElement(table.cellSet());
+        final Table.Cell<String, String, String> cell = Iterables.getOnlyElement(cells);
         assertEquals(TEST_ROW, cell.getRowKey());
         assertEquals(TEST_COLUMN, cell.getColumnKey());
         assertEquals(TEST_VALUE, cell.getValue());
+    }
+
+    @Test
+    public void testCellSet_ContainsExpected() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertTrue(table.cellSet().contains(Tables.immutableCell(TEST_ROW, TEST_COLUMN, TEST_VALUE)));
+        assertFalse(table.cellSet().contains(Tables.immutableCell(TEST_ROW, TEST_COLUMN, "invalid")));
     }
 
     // Test load

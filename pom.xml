@@ -61,6 +61,7 @@
             <groupId>com.yammer.collections</groupId>
             <artifactId>yammer-collections</artifactId>
             <version>${yammer-collections.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>

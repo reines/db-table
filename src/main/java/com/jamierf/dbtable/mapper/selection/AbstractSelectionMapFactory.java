@@ -1,9 +1,8 @@
-package com.jamierf.dbtable.util.mapper.selection;
+package com.jamierf.dbtable.mapper.selection;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.jamierf.dbtable.util.CastFunction;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
 import java.util.Collection;
 
@@ -26,7 +25,4 @@ public abstract class AbstractSelectionMapFactory<T> {
     public final SelectionMap get(Iterable<?> value) {
         return getSelectionMap(Iterables.transform(value, cast));
     }
-
-    public abstract ResultSetMapper<T> mapper();
-
 }

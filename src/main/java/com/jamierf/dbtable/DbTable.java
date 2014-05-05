@@ -2,40 +2,48 @@ package com.jamierf.dbtable;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Table;
-import com.jamierf.dbtable.util.mapper.selection.SelectionMap;
-import com.jamierf.dbtable.util.container.TableContainerBuilder;
-import com.jamierf.dbtable.util.folder.StandardFolder;
-import com.jamierf.dbtable.util.mapper.result.ByteArrayTableCellMapper;
-import com.jamierf.dbtable.util.mapper.selection.ByteArrayCellSelectionMapFactory;
-import com.jamierf.dbtable.util.mapper.selection.ByteArraySelectionMapFactory;
-import org.skife.jdbi.v2.ContainerBuilder;
-import org.skife.jdbi.v2.Folder3;
+import com.jamierf.dbtable.mapper.result.field.ByteArrayFieldMapperFactory;
+import com.jamierf.dbtable.mapper.result.field.FieldMapper;
+import com.jamierf.dbtable.mapper.result.map.MapEntryMapper;
+import com.jamierf.dbtable.mapper.result.table.TableCellMapper;
+import com.jamierf.dbtable.mapper.result.table.TableCellMapperFactory;
+import com.jamierf.dbtable.mapper.selection.FieldSelectionMapFactory;
+import com.jamierf.dbtable.mapper.selection.SelectionMap;
+import com.jamierf.dbtable.mapper.selection.TableCellSelectionMapFactory;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.PreparedBatch;
+import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
 import org.skife.jdbi.v2.util.IntegerMapper;
 
 import javax.annotation.Nullable;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
 public class DbTable implements Table<byte[], byte[], byte[]> {
 
-    private static final Folder3<ContainerBuilder<Table<byte[], byte[], byte[]>>, Table.Cell<byte[], byte[], byte[]>> TABLE_CELL_FOLDER = StandardFolder.getInstance();
+    private static final TableCellMapperFactory<byte[], byte[], byte[]> TABLE_CELL_MAPPER_FACTORY = new TableCellMapperFactory<>(
+            new ByteArrayFieldMapperFactory(), new ByteArrayFieldMapperFactory(), new ByteArrayFieldMapperFactory()
+    );
 
     private final String tableName;
     private final Handle handle;
+    private final TableCellMapper<byte[], byte[], byte[]> tableCellMapper;
 
     public DbTable(String tableName, Handle handle) {
         this.tableName = Preconditions.checkNotNull(tableName);
         this.handle = Preconditions.checkNotNull(handle);
 
+        tableCellMapper = TABLE_CELL_MAPPER_FACTORY.build("row_field", "column_field", "value_field");
+
         createTableIfRequired();
     }
 
     private void createTableIfRequired() {
-        handle.execute(String.format("CREATE TABLE IF NOT EXISTS %s (row_field VARCHAR NOT NULL, column_field VARCHAR NOT NULL, value_field BLOB NOT NULL, PRIMARY KEY (row_field, column_field))", tableName));
+        handle.execute(String.format("CREATE TABLE IF NOT EXISTS %s (row_field VARBINARY NOT NULL, column_field VARBINARY NOT NULL, value_field BLOB NOT NULL, PRIMARY KEY (row_field, column_field))", tableName));
     }
 
     @Override
@@ -130,54 +138,66 @@ public class DbTable implements Table<byte[], byte[], byte[]> {
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], byte[]> row(@Nullable byte[] row) {
-        return new DbMap(tableName, SelectionMap.of("row_field", row), "column_field", handle);
+        final MapEntryMapper<byte[], byte[]> mapper = TABLE_CELL_MAPPER_FACTORY.getRowMapMapperFactory().build("column_field", "value_field");
+        return new DbMap(tableName, handle, SelectionMap.of("row_field", row), new FieldSelectionMapFactory("column_field"), mapper);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], byte[]> column(@Nullable byte[] column) {
-        return new DbMap(tableName, SelectionMap.of("column_field", column), "row_field", handle);
+        final MapEntryMapper<byte[], byte[]> mapper = TABLE_CELL_MAPPER_FACTORY.getColumnMapMapperFactory().build("row_field", "value_field");
+        return new DbMap<>(tableName, handle, SelectionMap.of("column_field", column), new FieldSelectionMapFactory<byte[]>("row_field"), mapper);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Set<Cell<byte[], byte[], byte[]>> cellSet() {
-        return new DbSet<>(tableName, handle, SelectionMap.of(), new ByteArrayCellSelectionMapFactory("row_field", "column_field", "value_field"));
+        return new DbSet<>(tableName, handle, SelectionMap.NONE, new TableCellSelectionMapFactory<byte[], byte[], byte[]>(
+                "row_field", "column_field", "value_field"), tableCellMapper);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Set<byte[]> rowKeySet() {
-        return new DbSet<>(tableName, handle, SelectionMap.of(), new ByteArraySelectionMapFactory("row_field"));
+        final FieldMapper<byte[]> mapper = tableCellMapper.getRowMapper();
+        return new DbSet<>(tableName, handle, SelectionMap.NONE, new FieldSelectionMapFactory<byte[]>("row_field"), mapper);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Set<byte[]> columnKeySet() {
-        return new DbSet<>(tableName, handle, SelectionMap.of(), new ByteArraySelectionMapFactory("column_field"));
+        final FieldMapper<byte[]> mapper = tableCellMapper.getColumnMapper();
+        return new DbSet<>(tableName, handle, SelectionMap.NONE, new FieldSelectionMapFactory<byte[]>("column_field"), mapper);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Collection<byte[]> values() {
-        return new DbCollection<>(tableName, handle, SelectionMap.of(), new ByteArraySelectionMapFactory("value_field"));
+        final FieldMapper<byte[]> mapper = tableCellMapper.getValueMapper();
+        return new DbCollection<>(tableName, handle, SelectionMap.NONE, new FieldSelectionMapFactory<byte[]>("value_field"), mapper);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], Map<byte[], byte[]>> rowMap() {
-        return handle.createQuery(String.format("SELECT row_field, column_field, value_field FROM %s", tableName))
-                .map(new ByteArrayTableCellMapper("row_field", "column_field", "value_field"))
-                .fold(TableContainerBuilder.<byte[], byte[], byte[]>getInstance(), TABLE_CELL_FOLDER)
-                .build().rowMap(); // TODO: Make this dynamic
+        final MapEntryMapper<byte[], Map<byte[], byte[]>> mapper = new MapEntryMapper<>(tableCellMapper.getRowMapper(), new FieldMapper<Map<byte[], byte[]>>("column_field, value_field") {
+            @Override
+            public Map<byte[], byte[]> map(int index, ResultSet r, StatementContext ctx) throws SQLException {
+                return row(tableCellMapper.getRowMapper().map(index, r, ctx));
+            }
+        });
+        return new DbMap<>(tableName, handle, SelectionMap.NONE, new FieldSelectionMapFactory<byte[]>("row_field"), mapper);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Map<byte[], Map<byte[], byte[]>> columnMap() {
-        return handle.createQuery(String.format("SELECT row_field, column_field, value_field FROM %s", tableName))
-                .map(new ByteArrayTableCellMapper("row_field", "column_field", "value_field"))
-                .fold(TableContainerBuilder.<byte[], byte[], byte[]>getInstance(), TABLE_CELL_FOLDER)
-                .build().columnMap(); // TODO: Make this dynamic
+        final MapEntryMapper<byte[], Map<byte[], byte[]>> mapper = new MapEntryMapper<>(tableCellMapper.getColumnMapper(), new FieldMapper<Map<byte[], byte[]>>("row_field, value_field") {
+            @Override
+            public Map<byte[], byte[]> map(int index, ResultSet r, StatementContext ctx) throws SQLException {
+                return column(tableCellMapper.getColumnMapper().map(index, r, ctx));
+            }
+        });
+        return new DbMap<>(tableName, handle, SelectionMap.NONE, new FieldSelectionMapFactory<byte[]>("column_field"), mapper);
     }
 }

@@ -1,20 +1,16 @@
 package com.jamierf.dbtable;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableSet;
-import com.jamierf.dbtable.util.mapper.selection.SelectionMap;
-import com.jamierf.dbtable.util.filter.UniqueByteArraysFilter;
-import com.jamierf.dbtable.util.mapper.selection.AbstractSelectionMapFactory;
-import com.yammer.collections.transforming.TypedPredicate;
+import com.jamierf.dbtable.mapper.selection.AbstractSelectionMapFactory;
+import com.jamierf.dbtable.mapper.selection.SelectionMap;
 import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.skife.jdbi.v2.util.IntegerMapper;
 
 import javax.annotation.Nullable;
 import java.util.AbstractCollection;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.Set;
 
 class DbCollection<T> extends AbstractCollection<T> {
 
@@ -22,12 +18,14 @@ class DbCollection<T> extends AbstractCollection<T> {
     protected final Handle handle;
     protected final SelectionMap selectionMap;
     protected final AbstractSelectionMapFactory<T> selectionMapFactory;
+    protected final ResultSetMapper<T> fieldMapper;
 
-    DbCollection(String tableName, Handle handle, SelectionMap selectionMap, AbstractSelectionMapFactory<T> selectionMapFactory) {
+    DbCollection(String tableName, Handle handle, SelectionMap selectionMap, AbstractSelectionMapFactory<T> selectionMapFactory, ResultSetMapper<T> fieldMapper) {
         this.tableName = tableName;
         this.handle = handle;
         this.selectionMap = selectionMap;
         this.selectionMapFactory = selectionMapFactory;
+        this.fieldMapper = fieldMapper;
     }
 
     @Override
@@ -59,10 +57,9 @@ class DbCollection<T> extends AbstractCollection<T> {
 
     @Override
     public Iterator<T> iterator() {
-        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
-        return handle.createQuery(String.format("SELECT %2$s FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
+        return handle.createQuery(String.format("SELECT * FROM %1$s WHERE %2$s", tableName, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
-                .map(selectionMapFactory.mapper())
+                .map(fieldMapper)
                 .iterator();
     }
 
@@ -78,20 +75,6 @@ class DbCollection<T> extends AbstractCollection<T> {
                 .execute();
 
         return result;
-    }
-
-    @Override
-    public boolean containsAll(@Nullable Collection<?> values) {
-        // Filter out non-unique values so the count for DISTINCT matches
-        final Set<?> uniqueValues = ImmutableSet.copyOf(Collections2.filter(values, TypedPredicate.wrap(new UniqueByteArraysFilter())));
-
-        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
-        final SelectionMap valueMap = selectionMapFactory.get(uniqueValues);
-        return handle.createQuery(String.format("SELECT COUNT(DISTINCT %2$s) FROM %1$s WHERE %3$s AND %4$s", tableName, fieldsToCount, valueMap.asSql(), selectionMap.asSql()))
-                .bindFromMap(selectionMap.asMap())
-                .bindFromMap(valueMap.asMap())
-                .map(IntegerMapper.FIRST)
-                .first() == uniqueValues.size();
     }
 
     @Override

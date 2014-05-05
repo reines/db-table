@@ -1,4 +1,4 @@
-package com.jamierf.dbtable.util.codec;
+package com.jamierf.dbtable.codec;
 
 import com.google.common.base.Function;
 

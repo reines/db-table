@@ -1,11 +1,14 @@
 package com.jamierf.dbtable;
 
-import com.jamierf.dbtable.util.mapper.selection.SelectionMap;
-import com.jamierf.dbtable.util.mapper.selection.ByteArrayEntrySelectionMapFactory;
-import com.jamierf.dbtable.util.mapper.selection.ByteArraySelectionMapFactory;
+import com.google.common.base.Joiner;
+import com.jamierf.dbtable.mapper.result.field.FieldMapper;
+import com.jamierf.dbtable.mapper.result.map.MapEntryMapper;
+import com.jamierf.dbtable.mapper.selection.AbstractSelectionMapFactory;
+import com.jamierf.dbtable.mapper.selection.FieldSelectionMapFactory;
+import com.jamierf.dbtable.mapper.selection.MapEntrySelectionMapFactory;
+import com.jamierf.dbtable.mapper.selection.SelectionMap;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.PreparedBatch;
-import org.skife.jdbi.v2.util.ByteArrayMapper;
 import org.skife.jdbi.v2.util.IntegerMapper;
 
 import javax.annotation.Nonnull;
@@ -15,24 +18,26 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
-// TODO: Make generic
-class DbMap extends AbstractMap<byte[], byte[]> {
+class DbMap<K, V> extends AbstractMap<K, V> {
 
     private final String tableName;
     private final SelectionMap selectionMap;
-    private final String keyField;
     private final Handle handle;
+    private final AbstractSelectionMapFactory<K> selectionMapFactory;
+    private final MapEntryMapper<K, V> mapEntryMapper;
 
-    DbMap(String tableName, SelectionMap selectionMap, String keyField, Handle handle) {
+    DbMap(String tableName, Handle handle, SelectionMap selectionMap, AbstractSelectionMapFactory<K> selectionMapFactory, MapEntryMapper<K, V> mapEntryMapper) {
         this.tableName = tableName;
-        this.selectionMap = selectionMap;
-        this.keyField = keyField;
         this.handle = handle;
+        this.selectionMap = selectionMap;
+        this.selectionMapFactory = selectionMapFactory;
+        this.mapEntryMapper = mapEntryMapper;
     }
 
     @Override
     public int size() {
-        return handle.createQuery(String.format("SELECT COUNT(DISTINCT %2$s) FROM %1$s WHERE " + selectionMap.asSql(), tableName, keyField))
+        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
+        return handle.createQuery(String.format("SELECT COUNT(DISTINCT %2$s) FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .map(IntegerMapper.FIRST)
                 .first();
@@ -40,23 +45,24 @@ class DbMap extends AbstractMap<byte[], byte[]> {
 
     @Override
     public boolean isEmpty() {
-        return handle.createQuery(String.format("SELECT 1 FROM %1$s WHERE " + selectionMap.asSql(), tableName))
+        return handle.createQuery(String.format("SELECT 1 FROM %1$s WHERE %2$s", tableName, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .first() == null;
     }
 
     @Override
     public boolean containsKey(Object key) {
-        return handle.createQuery(String.format("SELECT 1 FROM %1$s WHERE %2$s = :%2$s AND " + selectionMap.asSql(), tableName, keyField))
+        final SelectionMap valueMap = selectionMapFactory.get(key);
+        return handle.createQuery(String.format("SELECT 1 FROM %1$s WHERE %2$s AND %3$s", tableName, valueMap.asSql(), selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
-                .bind(keyField, key)
+                .bindFromMap(valueMap.asMap())
                 .map(IntegerMapper.FIRST)
                 .first() != null;
     }
 
     @Override
     public boolean containsValue(Object value) {
-        return handle.createQuery(String.format("SELECT 1 FROM %1$s WHERE value_field = :value_field AND " + selectionMap.asSql(), tableName))
+        return handle.createQuery(String.format("SELECT 1 FROM %1$s WHERE value_field = :value_field AND %2$s", tableName, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .bind("value_field", value)
                 .map(IntegerMapper.FIRST)
@@ -64,43 +70,51 @@ class DbMap extends AbstractMap<byte[], byte[]> {
     }
 
     @Override
-    public byte[] get(Object key) {
-        return handle.createQuery(String.format("SELECT value_field FROM %1$s WHERE %2$s = :%2$s AND " + selectionMap.asSql(), tableName, keyField))
+    public V get(Object key) {
+        final SelectionMap valueMap = selectionMapFactory.get(key);
+        return handle.createQuery(String.format("SELECT * FROM %1$s WHERE %2$s AND %3$s", tableName, valueMap.asSql(), selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
-                .bind(keyField, key)
-                .map(ByteArrayMapper.FIRST)
+                .bindFromMap(valueMap.asMap())
+                .map(mapEntryMapper.getValueMapper())
                 .first();
     }
 
     @Override
-    public byte[] put(byte[] key, byte[] value) {
-        final byte[] result = get(key);
+    public V put(K key, V value) {
+        final V result = get(key);
+
+        final SelectionMap valueMap = selectionMapFactory.get(key);
         handle.createStatement(String.format("MERGE INTO %1$s (row_field, column_field, value_field) VALUES (:row_field, :column_field, :value_field)", tableName))
                 .bindFromMap(selectionMap.asMap())
-                .bind(keyField, key)
+                .bindFromMap(valueMap.asMap())
                 .bind("value_field", value)
                 .execute();
+
         return result;
     }
 
     @Override
-    public byte[] remove(Object key) {
-        final byte[] result = get(key);
-        handle.createStatement(String.format("DELETE FROM %1$s WHERE %2$s = :%2$s AND " + selectionMap.asSql(), tableName, keyField))
+    public V remove(Object key) {
+        final V result = get(key);
+
+        final SelectionMap valueMap = selectionMapFactory.get(key);
+        handle.createStatement(String.format("DELETE FROM %1$s WHERE %2$s AND %3$s", tableName, valueMap.asSql(), selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
-                .bind(keyField, key)
+                .bindFromMap(valueMap.asMap())
                 .execute();
+
         return result;
     }
 
     @Override
-    public void putAll(@Nullable Map<? extends byte[], ? extends byte[]> map) {
+    public void putAll(@Nullable Map<? extends K, ? extends V> map) {
         final PreparedBatch batch = handle.prepareBatch(String.format("MERGE INTO %1$s (row_field, column_field, value_field) VALUES (:row_field, :column_field, :value_field)", tableName));
 
-        for (Map.Entry<? extends byte[], ? extends byte[]> entry : map.entrySet()) {
+        for (Map.Entry<? extends K, ? extends V> entry : map.entrySet()) {
+            final SelectionMap valueMap = selectionMapFactory.get(entry.getKey());
             batch.add()
                     .bindFromMap(selectionMap.asMap())
-                    .bind(keyField, entry.getKey())
+                    .bindFromMap(valueMap.asMap())
                     .bind("value_field", entry.getValue());
         }
 
@@ -109,7 +123,7 @@ class DbMap extends AbstractMap<byte[], byte[]> {
 
     @Override
     public void clear() {
-        handle.createStatement(String.format("DELETE FROM %1$s WHERE " + selectionMap.asSql(), tableName))
+        handle.createStatement(String.format("DELETE FROM %1$s WHERE %2$s", tableName, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .execute();
     }
@@ -117,21 +131,23 @@ class DbMap extends AbstractMap<byte[], byte[]> {
     @Override
     @Nonnull
     @SuppressWarnings("unchecked")
-    public Set<byte[]> keySet() {
-        return new DbSet(tableName, handle, selectionMap, new ByteArraySelectionMapFactory(keyField));
+    public Set<K> keySet() {
+        final FieldMapper<K> mapper = mapEntryMapper.getKeyMapper();
+        return new DbSet<>(tableName, handle, selectionMap, new FieldSelectionMapFactory<K>(mapper.getFieldName()), mapper);
     }
 
     @Override
     @Nonnull
     @SuppressWarnings("unchecked")
-    public Collection<byte[]> values() {
-        return new DbCollection<>(tableName, handle, selectionMap, new ByteArraySelectionMapFactory("value_field"));
+    public Collection<V> values() {
+        final FieldMapper<V> mapper = mapEntryMapper.getValueMapper();
+        return new DbCollection<>(tableName, handle, selectionMap, new FieldSelectionMapFactory<V>(mapper.getFieldName()), mapper);
     }
 
     @Override
     @Nonnull
     @SuppressWarnings("unchecked")
-    public Set<Entry<byte[], byte[]>> entrySet() {
-        return new DbSet<>(tableName, handle, selectionMap, new ByteArrayEntrySelectionMapFactory(keyField, "value_field"));
+    public Set<Entry<K, V>> entrySet() {
+        return new DbSet<>(tableName, handle, selectionMap, new MapEntrySelectionMapFactory<K, V>(mapEntryMapper.getKeyMapper().getFieldName(), mapEntryMapper.getValueMapper().getFieldName()), mapEntryMapper);
     }
 }
