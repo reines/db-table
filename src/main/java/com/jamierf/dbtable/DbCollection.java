@@ -57,7 +57,8 @@ class DbCollection<T> extends AbstractCollection<T> {
 
     @Override
     public Iterator<T> iterator() {
-        return handle.createQuery(String.format("SELECT * FROM %1$s WHERE %2$s", tableName, selectionMap.asSql()))
+        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
+        return handle.createQuery(String.format("SELECT %2$s FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .map(fieldMapper)
                 .iterator();

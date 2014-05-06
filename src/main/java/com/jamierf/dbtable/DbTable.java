@@ -43,7 +43,9 @@ public class DbTable implements Table<byte[], byte[], byte[]> {
     }
 
     private void createTableIfRequired() {
-        handle.execute(String.format("CREATE TABLE IF NOT EXISTS %s (row_field VARBINARY(255) NOT NULL, column_field VARBINARY(255) NOT NULL, value_field BLOB NOT NULL, PRIMARY KEY HASH (row_field, column_field))", tableName));
+        // TODO: MySQL requires a length for VARBINARY, and imposes a max because they are indexed
+        // TODO: Test on PostgresSQL, SQLite, Derby, HSQLDB
+        handle.execute(String.format("CREATE TABLE IF NOT EXISTS %s (row_field VARBINARY NOT NULL, column_field VARBINARY NOT NULL, value_field BLOB NOT NULL, PRIMARY KEY HASH (row_field, column_field))", tableName));
     }
 
     @Override

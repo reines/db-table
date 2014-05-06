@@ -40,8 +40,9 @@
 
         <guava.version>16.0.1</guava.version>
         <jdbi.version>2.53</jdbi.version>
-        <yammer-collections.version>0.0.3</yammer-collections.version>
 
+        <yammer-collections.version>0.0.3</yammer-collections.version>
+        <commons-lang.version>3.3.2</commons-lang.version>
         <h2.version>1.4.178</h2.version>
         <junit.version>4.11</junit.version>
     </properties>
@@ -62,6 +63,11 @@
             <artifactId>yammer-collections</artifactId>
             <version>${yammer-collections.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang.version}</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>

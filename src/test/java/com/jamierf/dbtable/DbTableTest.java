@@ -3,16 +3,15 @@ package com.jamierf.dbtable;
 import com.google.common.collect.*;
 import com.jamierf.dbtable.codec.StringCodec;
 import com.yammer.collections.transforming.TransformingTable;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 
-import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 
 import static org.junit.Assert.*;
@@ -23,12 +22,6 @@ public class DbTableTest {
     private static final String TEST_ROW = "row";
     private static final String TEST_COLUMN = "column";
     private static final String TEST_VALUE = "value";
-
-    private static final Random RANDOM = new Random();
-
-    private static String randomString(int length) {
-        return new BigInteger(length, RANDOM).toString();
-    }
 
     private static Table<String, String, String> createTable(String name, Handle handle) {
         return TransformingTable.create(
@@ -716,6 +709,13 @@ public class DbTableTest {
     }
 
     @Test
+    public void testValues_NotEmptyWhenHasValues() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertFalse(table.values().isEmpty());
+    }
+
+    @Test
     public void testValues_ReturnsDuplicateValues() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
         table.put(TEST_ROW, "column1", TEST_VALUE);
@@ -728,6 +728,28 @@ public class DbTableTest {
     @Test
     public void testCellSet_EmptyTableHasNoCells() {
         assertTrue(table.cellSet().isEmpty());
+    }
+
+    @Test
+    public void testCellSet_NotEmptyWhenHasCells() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertFalse(table.cellSet().isEmpty());
+    }
+
+    @Test
+    public void testCellSet_TestSize() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+
+        assertEquals(2, table.cellSet().size());
+    }
+
+    @Test
+    public void testCellSet_IterateFirstValue() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+
+        assertEquals(Tables.immutableCell(TEST_ROW, TEST_COLUMN, TEST_VALUE), Iterables.getOnlyElement(table.cellSet()));
     }
 
     @Test
@@ -753,26 +775,60 @@ public class DbTableTest {
 
     // Test load
 
+    private static final int TEST_ROW_COUNT = 1000;
+
     @Test
     public void testMany_ManyRows() {
-        for (int i = 0; i < 1000; i++) {
-            table.put(String.valueOf(i), TEST_COLUMN, randomString(100));
+        for (int i = 0; i < TEST_ROW_COUNT; i++) {
+            table.put(String.valueOf(i), TEST_COLUMN, RandomStringUtils.random(100));
         }
 
-        assertEquals(1000, table.size());
-        assertEquals(1000, table.column(TEST_COLUMN).size());
-        assertEquals(1000, table.values().size());
+        assertEquals(TEST_ROW_COUNT, table.size());
+        assertEquals(TEST_ROW_COUNT, table.cellSet().size());
+        assertEquals(TEST_ROW_COUNT, table.column(TEST_COLUMN).size());
+        assertEquals(TEST_ROW_COUNT, table.values().size());
     }
 
     @Test
     public void testMany_ManyColumns() {
-        for (int i = 0; i < 1000; i++) {
-            table.put(TEST_ROW, String.valueOf(i), randomString(100));
+        for (int i = 0; i < TEST_ROW_COUNT; i++) {
+            table.put(TEST_ROW, String.valueOf(i), RandomStringUtils.random(100));
         }
 
-        assertEquals(1000, table.size());
-        assertEquals(1000, table.row(TEST_ROW).size());
-        assertEquals(1000, table.values().size());
+        assertEquals(TEST_ROW_COUNT, table.size());
+        assertEquals(TEST_ROW_COUNT, table.cellSet().size());
+        assertEquals(TEST_ROW_COUNT, table.row(TEST_ROW).size());
+        assertEquals(TEST_ROW_COUNT, table.values().size());
+    }
+
+    private static final int MAX_KEY_LENGTH = 1024 * 128; // 128Kb
+    private static final int MAX_VALUE_LENGTH = 1024 * 1024; // 1Mb
+
+    @Test
+    public void testLarge_LargeRowKey() {
+        final String row = RandomStringUtils.random(MAX_KEY_LENGTH);
+        table.put(row, TEST_COLUMN, TEST_VALUE);
+
+        assertFalse(table.isEmpty());
+        assertEquals(TEST_VALUE, table.get(row, TEST_COLUMN));
+    }
+
+    @Test
+    public void testLarge_LargeColumnKey() {
+        final String column = RandomStringUtils.random(MAX_KEY_LENGTH);
+        table.put(TEST_ROW, column, TEST_VALUE);
+
+        assertFalse(table.isEmpty());
+        assertEquals(TEST_VALUE, table.get(TEST_ROW, column));
+    }
+
+    @Test
+    public void testLarge_LargeValue() {
+        final String value = RandomStringUtils.random(MAX_VALUE_LENGTH);
+        table.put(TEST_ROW, TEST_COLUMN, value);
+
+        assertFalse(table.isEmpty());
+        assertEquals(value, table.get(TEST_ROW, TEST_COLUMN));
     }
 
     // Test multiple tables
