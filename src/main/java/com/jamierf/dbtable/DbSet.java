@@ -18,8 +18,8 @@ class DbSet<T> extends DbCollection<T> implements Set<T> {
 
     @Override
     public int size() {
-        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
-        return handle.createQuery(String.format("SELECT COUNT(DISTINCT %2$s) FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
+        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.keyFields());
+        return handle.createQuery(String.format("SELECT COUNT(DISTINCT (%2$s)) FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .map(IntegerMapper.FIRST)
                 .first();
@@ -27,7 +27,7 @@ class DbSet<T> extends DbCollection<T> implements Set<T> {
 
     @Override
     public Iterator<T> iterator() {
-        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
+        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.keyFields());
         return handle.createQuery(String.format("SELECT DISTINCT %2$s FROM %1$s WHERE " + selectionMap.asSql(), tableName, fieldsToCount))
                 .bindFromMap(selectionMap.asMap())
                 .map(fieldMapper)

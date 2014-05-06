@@ -14,7 +14,7 @@ public class FieldSelectionMapFactory<T> extends AbstractSelectionMapFactory<T> 
     }
 
     @Override
-    public Collection<String> fields() {
+    public Collection<String> keyFields() {
         return ImmutableSet.of(fieldName);
     }
 

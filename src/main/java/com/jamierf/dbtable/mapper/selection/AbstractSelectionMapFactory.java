@@ -10,19 +10,18 @@ public abstract class AbstractSelectionMapFactory<T> {
 
     private final Function<Object, T> cast = CastFunction.getInstance();
 
-    public abstract Collection<String> fields();
-
     protected abstract SelectionMap getSelectionMap(T value);
-
-    @SuppressWarnings("unchecked")
-    public final SelectionMap get(Object value) {
-        return getSelectionMap(cast.apply(value));
-    }
-
     protected abstract SelectionMap getSelectionMap(Iterable<T> value);
 
+    public abstract Collection<String> keyFields();
+
     @SuppressWarnings("unchecked")
-    public final SelectionMap get(Iterable<?> value) {
-        return getSelectionMap(Iterables.transform(value, cast));
+    public final SelectionMap get(Object key) {
+        return getSelectionMap(cast.apply(key));
+    }
+
+    @SuppressWarnings("unchecked")
+    public final SelectionMap get(Iterable<?> keys) {
+        return getSelectionMap(Iterables.transform(keys, cast));
     }
 }

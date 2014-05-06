@@ -435,6 +435,24 @@ public class DbTableTest {
     }
 
     @Test
+    public void testRow_EntrySetSize() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+
+        assertEquals(2, table.row(TEST_ROW).entrySet().size());
+    }
+
+    @Test
+    public void testRow_KeySetSize() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+
+        assertEquals(2, table.row(TEST_ROW).keySet().size());
+    }
+
+    @Test
     public void testRow_RemoveEntry() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
 
@@ -528,6 +546,24 @@ public class DbTableTest {
 
         assertFalse(table.column(TEST_COLUMN).isEmpty());
         assertTrue(table.column("column1").isEmpty());
+    }
+
+    @Test
+    public void testColumn_EntrySetSize() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+
+        assertEquals(2, table.column(TEST_COLUMN).entrySet().size());
+    }
+
+    @Test
+    public void testColumn_KeySetSize() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+
+        assertEquals(2, table.column(TEST_COLUMN).keySet().size());
     }
 
     @Test
@@ -738,11 +774,22 @@ public class DbTableTest {
     }
 
     @Test
-    public void testCellSet_TestSize() {
+    public void testCellSet_Size() {
         table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
         table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", TEST_COLUMN, TEST_VALUE);
 
-        assertEquals(2, table.cellSet().size());
+        assertEquals(3, table.cellSet().size());
+    }
+
+    @Test
+    public void testCellSet_EntrySetSize() {
+        table.put(TEST_ROW, TEST_COLUMN, TEST_VALUE);
+        table.put(TEST_ROW, "column1", TEST_VALUE);
+        table.put("row1", "column1", TEST_VALUE);
+
+        assertEquals(2, table.rowKeySet().size());
+        assertEquals(2, table.columnKeySet().size());
     }
 
     @Test

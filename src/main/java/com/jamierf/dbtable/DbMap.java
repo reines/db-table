@@ -36,8 +36,8 @@ class DbMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public int size() {
-        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
-        return handle.createQuery(String.format("SELECT COUNT(DISTINCT %2$s) FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
+        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.keyFields());
+        return handle.createQuery(String.format("SELECT COUNT(DISTINCT (%2$s)) FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .map(IntegerMapper.FIRST)
                 .first();

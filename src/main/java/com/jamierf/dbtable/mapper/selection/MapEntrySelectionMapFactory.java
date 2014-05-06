@@ -26,7 +26,7 @@ public class MapEntrySelectionMapFactory<K, V> extends AbstractSelectionMapFacto
     }
 
     @Override
-    public Collection<String> fields() {
+    public Collection<String> keyFields() {
         return ImmutableSet.of(keyFieldName, valueFieldName);
     }
 

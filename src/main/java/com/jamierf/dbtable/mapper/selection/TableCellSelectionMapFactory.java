@@ -30,7 +30,7 @@ public class TableCellSelectionMapFactory<R, C, V> extends AbstractSelectionMapF
     }
 
     @Override
-    public Collection<String> fields() {
+    public Collection<String> keyFields() {
         return ImmutableSet.of(rowFieldName, columnFieldName, valueFieldName);
     }
 

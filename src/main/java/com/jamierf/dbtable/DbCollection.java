@@ -30,7 +30,7 @@ class DbCollection<T> extends AbstractCollection<T> {
 
     @Override
     public int size() {
-        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
+        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.keyFields());
         return handle.createQuery(String.format("SELECT COUNT(%2$s) FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .map(IntegerMapper.FIRST)
@@ -57,7 +57,7 @@ class DbCollection<T> extends AbstractCollection<T> {
 
     @Override
     public Iterator<T> iterator() {
-        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.fields());
+        final String fieldsToCount = Joiner.on(", ").join(selectionMapFactory.keyFields());
         return handle.createQuery(String.format("SELECT %2$s FROM %1$s WHERE %3$s", tableName, fieldsToCount, selectionMap.asSql()))
                 .bindFromMap(selectionMap.asMap())
                 .map(fieldMapper)
