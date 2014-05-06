@@ -13,4 +13,4 @@ DB Table can be found in maven central.
     </dependency>
 
 ## License
-The DB Table library is released under the BSD 3-clause license.
+The DB Table library is released under the Apache license.
