@@ -23,6 +23,12 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
+// H2: Working
+// TODO: MySQL:         requires a length for VARBINARY, and imposes a max length because they are indexed
+// TODO: HSQLDB:        requires a length for VARBINARY, doesn't recognise REPLACE INTO, or HASH index type
+// TODO: PostgresSQL:   test?
+// TODO: SQLite:        test?
+// TODO: Apache Derby:  test?
 public class DbTable implements Table<byte[], byte[], byte[]> {
 
     private static final TableCellMapperFactory<byte[], byte[], byte[]> TABLE_CELL_MAPPER_FACTORY = new TableCellMapperFactory<>(
@@ -43,8 +49,6 @@ public class DbTable implements Table<byte[], byte[], byte[]> {
     }
 
     private void createTableIfRequired() {
-        // TODO: MySQL requires a length for VARBINARY, and imposes a max because they are indexed
-        // TODO: Test on PostgresSQL, SQLite, Derby, HSQLDB
         handle.execute(String.format("CREATE TABLE IF NOT EXISTS %s (row_field VARBINARY NOT NULL, column_field VARBINARY NOT NULL, value_field BLOB NOT NULL, PRIMARY KEY HASH (row_field, column_field))", tableName));
     }
 

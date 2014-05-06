@@ -58,7 +58,7 @@
             <artifactId>jdbi</artifactId>
             <version>${jdbi.version}</version>
         </dependency>
-        <dependency>
+        <dependency><!--TODO: Needs released-->
             <groupId>com.yammer.collections</groupId>
             <artifactId>yammer-collections</artifactId>
             <version>${yammer-collections.version}</version>
@@ -68,6 +68,7 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>${commons-lang.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
