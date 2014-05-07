@@ -8,13 +8,19 @@
         <version>7</version>
     </parent>
 
-    <groupId>com.jamierf</groupId>
+    <groupId>com.jamierf.db-table</groupId>
     <artifactId>db-table</artifactId>
     <version>0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
 
     <name>DB Table</name>
     <description>DB Table is an implementation of the Guava Table interface, backed by JDBI.</description>
     <url>https://github.com/reines/db-table</url>
+
+    <modules>
+        <module>db-table-core</module>
+        <module>db-table-jackson</module>
+    </modules>
 
     <developers>
         <developer>
@@ -41,41 +47,15 @@
         <guava.version>16.0.1</guava.version>
         <jdbi.version>2.53</jdbi.version>
 
-        <yammer-collections.version>0.0.4-SNAPSHOT</yammer-collections.version><!--TODO: Needs released-->
+        <jackson.version>2.3.3</jackson.version>
+
+        <yammer-collections.version>0.0.4</yammer-collections.version>
         <commons-lang.version>3.3.2</commons-lang.version>
         <h2.version>1.4.178</h2.version>
         <junit.version>4.11</junit.version>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>${guava.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi</artifactId>
-            <version>${jdbi.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.yammer.collections</groupId>
-            <artifactId>yammer-collections</artifactId>
-            <version>${yammer-collections.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commons-lang.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>${h2.version}</version>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
