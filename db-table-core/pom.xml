@@ -21,6 +21,11 @@
             <artifactId>jdbi</artifactId>
             <version>${jdbi.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>${h2.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -32,12 +37,6 @@
             <groupId>com.yammer.collections</groupId>
             <artifactId>yammer-collections</artifactId>
             <version>${yammer-collections.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>${h2.version}</version>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>
