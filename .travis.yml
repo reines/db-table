@@ -10,9 +10,6 @@ env:
   global:
   - secure: "fuzmYxrELKtca171eLuZhH9Q3f07lYQlcYa5Cjr3UKybKVS0yPz2AilB8J6Uq+jF0/tpvL/33rFe4wRKHfL7T1HPfgozSvXHUnTTmGpGe3/zI8YKx+e8n0v/Bo3lfYULvIhn8RnpjjTV2prntzMuijCnWP96r1C36XE0r6qWJ50="
   - secure: "noUDT4cCs75PcmdOl/sfVV/ky919as2ae6BgaE6adgwTwFU5/rmmpJpiFnnuwuf5xuTPCiVrWIjl24zE0DVBvrKdUCVkcyzV5xsmKQkDOlyDQ8PjLCEODdoQHriI+V2hpZFkzt08OlmKXy/9Z4nJ663Xw/z0Pp4oOrkwDnmv7Gs="
-  - secure: "MHt0i5UUle3p7mUSLrHcShtxe6EKNtxnTxg0DtzaNmKOIDtT6BsPRW7wFTvcGmkJKcN6W953puQzyrBpiwInO80pp8tgbbisJLgXeHdHQ/fYyW9vwco1c9cAAlHHo8z/93EMkLmU1gRIrGzCvl+5DOGsUHevy1cBdjBbZ35X8Ho="
-
-script: mvn test jacoco:report coveralls:jacoco
 
 after_success:
-  - mvn deploy --settings settings.xml
+  - mvn clean deploy --settings settings.xml
