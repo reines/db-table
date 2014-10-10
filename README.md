@@ -17,6 +17,15 @@ DB Table can be found in maven central.
 </dependency>
 ```
 
+## Usage
+
+```java
+final Handle handle = DBI.open("jdbc:h2:example.db");
+final Table<String, String, String> table = new JacksonDbTableBuilder(handle)
+    .build("table_name", String.class, String.class, String.class);
+table.put("row", "column", "value");
+```
+
 ## License
 
 Released under the [Apache 2.0 License](LICENSE).
